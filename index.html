@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+
+<style>
+	body {
+		background-color: gray;
+	}
+</style>
+
+<html>
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+
+<script>
+	let canvas;
+	let canvasContext;
+	let ballX = 50;
+	let ballY = 50;
+	let ballSpeedX = 5;
+	let ballSpeedY = 3;
+
+	let player1Score = 0;
+	let player2Score = 0;
+
+	let leftPaddleY = 250;
+	let rightPaddleY = 250;
+
+	let showingWinScreen = false;
+
+	const AI_SPEED = 7;
+	const PADDLE_HEIGHT = 100;
+	const PADDLE_WIDTH = 10;
+	const PADDLE_SPACING = 10;
+	const WINNING_SCORE = 5;
+
+
+	//Este es el "main", donde se ejecuta todo el código y se llaman todas las funciones
+	window.onload = function() {
+		canvas = document.getElementById('gameCanvas');
+		canvasContext = canvas.getContext('2d');
+
+		let framesPerSecond = 60;
+		setInterval(function() {
+			moveEverything();
+			drawEverything();
+		}, 1000/framesPerSecond);
+
+		canvas.addEventListener('mousedown', handleMouseClick)
+
+		canvas.addEventListener('mousemove', 
+			function(evt) {
+				let mousePos = calculateMousePos(evt);
+				leftPaddleY = mousePos.y-(PADDLE_HEIGHT/2);
+		});
+
+	}
+
+	function calculateMousePos(evt) {
+	/* Esta función se encarga de obtener la posición del mouse en el canvas, no entendí muy bien qué hace cada línea*/
+
+		let rect = canvas.getBoundingClientRect();
+		let root = document.documentElement;
+
+		let mouseX = evt.clientX - rect.left - root.scrollLeft;
+		let mouseY = evt.clientY - rect.top - root.scrollTop;
+
+		return {
+			x:mouseX,
+			y:mouseY
+		}
+	}
+
+	function moveEverything(){
+		if(showingWinScreen){
+			return;
+		}
+
+		ballX += ballSpeedX;
+
+		computerMovement();
+
+		//si la pelota se sale de la pantalla, reinicia la pelota y da el punto
+		if(ballX <= 0){
+			player2Score++;
+			ballReset();
+		}
+
+		if(ballX >= canvas.width){
+			player1Score++;
+			ballReset();
+		}
+
+		//si la pelota toca el pad, rebota
+		if(ballReachesPaddle('left') && ballTouchesPaddle('left')){
+			ballSpeedX = -ballSpeedX;
+
+			//la diferencia entre la altura de la pelota y el centro del pad
+			let deltaY = ballY - (leftPaddleY+PADDLE_HEIGHT/2)
+			ballSpeedY = deltaY * 0.25;
+		}
+
+		if(ballReachesPaddle('right') && ballTouchesPaddle('right')){
+			ballSpeedX = -ballSpeedX;	
+		
+			//la diferencia entre la altura de la pelota y el centro del pad
+			let deltaY = ballY - (rightPaddleY+PADDLE_HEIGHT/2)
+			ballSpeedY = deltaY * 0.25;
+		}
+
+
+		//esto es para que la pelota rebote en los bordes horizontales
+		ballY += ballSpeedY;
+		if(ballY >= canvas.height && ballSpeedY > 0){
+			ballSpeedY = -ballSpeedY;	
+		}
+		if(ballY <= 0 && ballSpeedY < 0){
+			ballSpeedY = -ballSpeedY;	
+		} 
+	}
+
+	function drawEverything(){
+		//Esto dibuja el fondo de negro
+		dibujarRectangulo('black',0,0,canvas.width,canvas.height);
+
+
+		//esto muestra la pagina de pausa cuando el juego acaba
+		if(showingWinScreen){
+			canvasContext.fillStyle = 'white';
+			canvasContext.fillText("click para continuar", 360, 250);
+			if(player1Score>=WINNING_SCORE){
+				canvasContext.fillText("Jugador 1 GANADOR!!!",100,100);
+			}
+			if(player2Score>=WINNING_SCORE){
+				canvasContext.fillText("Jugador 2 GANADOR!!!",canvas.width-150,100);
+			}
+		
+			return;
+		}
+		
+		//Esto dibuja la red, en el centro
+		dibujarRed(canvas.width/2);
+
+		//esto dibuja el pad de la izquierda, el del jugador
+		dibujarRectangulo('white',PADDLE_SPACING,leftPaddleY,PADDLE_WIDTH,PADDLE_HEIGHT);
+
+		//Esto dibujo el pad de la derecha, el de la computadora
+		dibujarRectangulo('white',canvas.width - PADDLE_SPACING - PADDLE_WIDTH,rightPaddleY,PADDLE_WIDTH,PADDLE_HEIGHT);
+
+		//Esto dibuja la pelota
+		dibujarCirculo('red', ballX, ballY, 7);
+	
+		//el score
+		canvasContext.fillText(player1Score,100,100);
+		canvasContext.fillText(player2Score,canvas.width-100,100);
+	}
+
+	function dibujarRectangulo(color, posX, posY, ancho, alto){
+		canvasContext.fillStyle = color;
+		canvasContext.fillRect(posX,posY,ancho,alto);
+		
+	}
+
+	function dibujarCirculo(color, posX, posY, radio){
+		canvasContext.fillStyle = color;
+		canvasContext.beginPath();
+		canvasContext.arc(posX, posY, radio, 0, Math.PI*2, true);
+		canvasContext.fill();
+	}
+
+	function dibujarRed(distancia){
+		for(let i=0;i<canvas.height;i+=40){
+			dibujarRectangulo('white',distancia-1,i+10,2,20)
+		}
+	}
+
+	function ballReset() {
+		if((player1Score>=WINNING_SCORE)||(player2Score>=WINNING_SCORE)){
+			endGame();
+		}
+
+		ballSpeedY = 0;
+		ballSpeedX = -ballSpeedX;
+		ballX = canvas.width/2;
+		ballY = canvas.height/2;
+	}
+
+	function ballReachesPaddle(direccion){
+		if(direccion == 'left'){
+			return(ballX == PADDLE_SPACING+PADDLE_WIDTH);
+		} else if(direccion == 'right'){
+			return(ballX == canvas.width-PADDLE_SPACING-PADDLE_WIDTH);
+		}
+	}
+
+	function ballTouchesPaddle(direccion){
+		if(direccion == 'left'){
+			return((ballY > leftPaddleY && ballY < leftPaddleY+PADDLE_HEIGHT));
+		} else if(direccion == 'right'){
+			return(ballY > rightPaddleY && ballY < rightPaddleY+PADDLE_HEIGHT);
+		}
+	}
+
+	function computerMovement(){
+		let paddleCenter = rightPaddleY + (PADDLE_HEIGHT/2)
+		if(paddleCenter < ballY-35){
+			rightPaddleY += AI_SPEED;
+		} else if(paddleCenter > ballY+35){
+			rightPaddleY -= AI_SPEED;
+		}
+	}
+
+	function endGame(){
+		showingWinScreen = true;
+	}
+
+	function handleMouseClick(evt){
+		if(showingWinScreen){
+			player1Score = 0;
+			player2Score = 0;
+			showingWinScreen = false;
+		}
+	}
+
+</script>
+</html>
